@@ -1,13 +1,13 @@
 /*
- * 投稿審查系統：GitHub Pages 展示版
- * 與 PHP 版相同的頁面與狀態流程，資料改存在瀏覽器 localStorage。
- * 正式版的權限與狀態檢查在 PHP 後端（includes/manuscripts.php）。
+ * 投稿審查系統：GitHub Pages 網站版
+ * 與 PHP 版相同的頁面與狀態流程，資料存在瀏覽器 localStorage。
+ * PHP + MySQL 版的權限與狀態檢查在後端（includes/manuscripts.php）。
  */
 (function () {
     'use strict';
 
-    const STORE_KEY = 'srs-demo-v1';
-    const SESSION_KEY = 'srs-demo-user';
+    const STORE_KEY = 'srs-data-v2';
+    const SESSION_KEY = 'srs-user';
 
     const STATUS_LABELS = { editing: '編輯中', reviewing: '審查中', approved: '已通過' };
     const ACTION_LABELS = { submit: '送出投稿', approve: '審查通過', reject: '退回修改' };
@@ -33,19 +33,25 @@
     function seed() {
         const t = now();
         return {
-            nextId: 6,
+            nextId: 8,
             manuscripts: [
                 { id: 1, author_id: 1, category_id: 1, title: '生成式 AI 對大學教育的影響', content: '近年生成式 AI 快速普及，學生的學習方式也隨之改變……', status: 'editing', submitted_at: null, updated_at: t },
                 { id: 2, author_id: 1, category_id: 3, title: '台東三天兩夜慢旅行', content: '第一天從台北搭火車出發，沿著東海岸一路向南……', status: 'reviewing', submitted_at: t, updated_at: t },
                 { id: 3, author_id: 1, category_id: 2, title: '租屋族的省錢料理', content: '一只電鍋就能完成的五道料理……', status: 'approved', submitted_at: t, updated_at: t },
                 { id: 4, author_id: 2, category_id: 4, title: '雨夜', content: '雨落在巷口的鐵皮屋頂上，像一首聽了很多年的歌……', status: 'reviewing', submitted_at: t, updated_at: t },
                 { id: 5, author_id: 2, category_id: 5, title: '從學生視角看校園數位化', content: '選課系統、線上繳費、行動學生證……', status: 'editing', submitted_at: null, updated_at: t },
+                { id: 6, author_id: 2, category_id: 1, title: '我如何用三個工具管理大學生活', content: '從行事曆、筆記到待辦清單，找到適合自己的組合比追求最強的工具更重要。\n\n這篇整理了我這兩年實際用下來的心得。', status: 'approved', submitted_at: t, updated_at: t },
+                { id: 7, author_id: 1, category_id: 3, title: '花蓮單車環騎紀錄', content: '清晨從七星潭出發，沿著海岸線一路騎到牛山呼庭。\n\n風很大，但海的顏色值得每一次停下來。', status: 'approved', submitted_at: t, updated_at: t },
             ],
             logs: [
                 { manuscript_id: 2, user_id: 1, action: 'submit', comment: null, created_at: t },
                 { manuscript_id: 3, user_id: 1, action: 'submit', comment: null, created_at: t },
                 { manuscript_id: 3, user_id: 3, action: 'approve', comment: '內容實用，排版清楚。', created_at: t },
                 { manuscript_id: 4, user_id: 2, action: 'submit', comment: null, created_at: t },
+                { manuscript_id: 6, user_id: 2, action: 'submit', comment: null, created_at: t },
+                { manuscript_id: 6, user_id: 3, action: 'approve', comment: null, created_at: t },
+                { manuscript_id: 7, user_id: 1, action: 'submit', comment: null, created_at: t },
+                { manuscript_id: 7, user_id: 3, action: 'approve', comment: '畫面感很好。', created_at: t },
             ],
         };
     }
@@ -111,10 +117,13 @@
     function homePath(user) { return user.role === 'editor' ? '/editor' : '/author'; }
 
     function renderNav(user) {
-        if (!user) { nav.innerHTML = ''; return; }
-        const links = user.role === 'author'
+        if (!user) {
+            nav.innerHTML = '<a href="#/">首頁</a><a class="btn btn-primary btn-sm" href="#/login">登入</a>';
+            return;
+        }
+        const links = '<a href="#/">首頁</a>' + (user.role === 'author'
             ? '<a href="#/author">我的投稿</a><a href="#/author/new">新增投稿</a>'
-            : '<a href="#/editor">待審查清單</a>';
+            : '<a href="#/editor">待審查清單</a>');
         nav.innerHTML = `${links}
             <span class="user-chip">${h(user.display_name)}（${user.role === 'editor' ? '編輯' : '作者'}）</span>
             <button type="button" class="btn btn-link" data-action="logout">登出</button>`;
@@ -288,6 +297,84 @@
             </form>` : ''}${reviewHistory(m.id)}`);
     }
 
+    /** 首頁：系統介紹 + 已通過審查的文章 */
+    function homePage(user, query) {
+        const category = Number(query.get('category') || 0);
+        const articles = db.manuscripts.filter(m => m.status === 'approved')
+            .filter(m => !category || m.category_id === category)
+            .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || '') || b.id - a.id);
+        const stats = {
+            approved: db.manuscripts.filter(m => m.status === 'approved').length,
+            reviewing: db.manuscripts.filter(m => m.status === 'reviewing').length,
+            authors: USERS.filter(u => u.role === 'author').length,
+        };
+        const cta = user
+            ? `<a class="btn btn-primary" href="#${homePath(user)}">${user.role === 'editor' ? '前往審查稿件' : '前往我的投稿'}</a>`
+            : `<a class="btn btn-primary" href="#/login">登入開始投稿</a>`;
+        page(`<section class="hero">
+                <h1>分享你的文字，交給編輯把關</h1>
+                <p>作者撰寫並送出稿件，編輯審查後決定通過或退回修改，每一步都留下紀錄。</p>
+                <div class="hero-actions">${cta}<a class="btn" href="#/about">系統介紹</a></div>
+                <div class="stats">
+                    <div><strong>${stats.approved}</strong><span>已刊登文章</span></div>
+                    <div><strong>${stats.reviewing}</strong><span>審查中</span></div>
+                    <div><strong>${stats.authors}</strong><span>位作者</span></div>
+                </div>
+            </section>
+            <div class="page-head"><h2>最新文章</h2>
+                <div class="chips">
+                    <a class="chip ${!category ? 'active' : ''}" href="#/">全部</a>
+                    ${CATEGORIES.map(c => `<a class="chip ${category === c.id ? 'active' : ''}" href="#/?category=${c.id}">${h(c.name)}</a>`).join('')}
+                </div>
+            </div>
+            ${articles.length ? `<div class="article-grid">${articles.map(m => `
+                <a class="card article-card" href="#/articles/${m.id}">
+                    <span class="tag">${h(categoryName(m.category_id))}</span>
+                    <h3>${h(m.title)}</h3>
+                    <p>${h(m.content.replace(/\s+/g, ' ').slice(0, 60))}${m.content.length > 60 ? '……' : ''}</p>
+                    <span class="muted">${h(userById(m.author_id).display_name)} · ${h(m.updated_at.slice(0, 10))}</span>
+                </a>`).join('')}</div>` : '<div class="empty">這個類別還沒有文章。</div>'}`);
+    }
+
+    /** 公開文章頁：只顯示已通過的稿件 */
+    function articlePage(id) {
+        const m = findManuscript(id);
+        if (!m || m.status !== 'approved') { flash('找不到文章。', 'error'); return go('/'); }
+        page(`<a class="back" href="#/">← 回到首頁</a>
+            <article class="card manuscript article">
+                <div class="meta"><span class="tag">${h(categoryName(m.category_id))}</span>
+                    <span class="muted">${h(userById(m.author_id).display_name)} · ${h(m.updated_at.slice(0, 10))}</span></div>
+                <h1>${h(m.title)}</h1>
+                <div class="content">${nl2br(m.content)}</div>
+            </article>`);
+    }
+
+    function aboutPage() {
+        page(`<article class="card about">
+            <h1>系統介紹</h1>
+            <p>投稿審查系統提供「作者」與「編輯」兩種角色，管理稿件從撰寫到刊登的完整流程。</p>
+            <h2>稿件狀態</h2>
+            <div class="flow">
+                <span class="badge badge-editing">編輯中</span><span class="arrow">作者送出 →</span>
+                <span class="badge badge-reviewing">審查中</span><span class="arrow">編輯通過 →</span>
+                <span class="badge badge-approved">已通過</span>
+            </div>
+            <p class="muted">編輯退回時，稿件回到「編輯中」，作者可以看到退回意見並修改後重新送出。</p>
+            <div class="about-grid">
+                <section><h2>作者</h2><ul>
+                    <li>查看自己的投稿清單與審查狀態</li><li>新增、編輯稿件（類別、標題、內容）</li>
+                    <li>刪除編輯中的稿件</li><li>送出投稿給編輯審查</li></ul></section>
+                <section><h2>編輯</h2><ul>
+                    <li>查看待審查清單</li><li>閱讀稿件內容</li>
+                    <li>通過稿件，文章刊登到首頁</li><li>退回稿件並附上修改意見</li></ul></section>
+            </div>
+            <h2>測試帳號</h2>
+            <ul><li>作者：<code>alice</code> / <code>author123</code>、<code>bob</code> / <code>author123</code></li>
+                <li>編輯：<code>editor</code> / <code>editor123</code></li></ul>
+            <div class="form-actions"><a class="btn btn-primary" href="#/login">前往登入</a></div>
+        </article>`);
+    }
+
     /* ---------- 路由 ---------- */
 
     function render() {
@@ -298,6 +385,11 @@
         db = load(); // 其他分頁可能改過資料
         renderNav(user);
 
+        // 公開頁面
+        if (!parts.length) return homePage(user, query);
+        if (parts[0] === 'articles') return articlePage(Number(parts[1]));
+        if (parts[0] === 'about') return aboutPage();
+
         if (parts[0] === 'login' || !user) {
             if (user) return go(homePath(user));
             if (parts[0] !== 'login') {
@@ -307,7 +399,6 @@
             }
             return loginPage();
         }
-        if (!parts.length) return go(homePath(user));
 
         // 角色不符的頁面一律擋下
         if (parts[0] !== user.role) {
@@ -419,7 +510,7 @@
         if (action === 'logout') {
             sessionStorage.removeItem(SESSION_KEY);
             flash('已登出。');
-            return go('/login');
+            return go('/');
         }
         if (!user || user.role !== 'author') return;
 
@@ -445,10 +536,10 @@
     });
 
     document.getElementById('reset-demo').addEventListener('click', () => {
-        if (!confirm('要把展示資料重設回初始狀態嗎？')) return;
+        if (!confirm('要把所有資料重設回初始內容嗎？')) return;
         db = seed();
         save();
-        flash('展示資料已重設。');
+        flash('資料已重設為初始內容。');
         render();
     });
 

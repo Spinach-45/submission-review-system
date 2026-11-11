@@ -4,7 +4,7 @@
 
 > 期中個人專題作品
 >
-> 🔗 **線上展示：<https://spinach-45.github.io/submission-review-system/>**（不用安裝，直接用下方測試帳號登入。展示版為純前端，資料存在瀏覽器；正式版為 PHP + MySQL）
+> 🔗 **網站：<https://spinach-45.github.io/submission-review-system/>**（首頁可瀏覽已刊登文章，用下方測試帳號登入即可投稿、審查）
 
 ![我的投稿清單](docs/screenshots/02-author-list.png)
 
@@ -24,6 +24,7 @@
 - 退回稿件：審查中 → 編輯中，可附上審查意見
 
 ### 其他
+- 網站首頁：顯示已通過審查的文章，可依類別瀏覽
 - 審查歷程：每次送出、通過、退回都會留下紀錄與意見
 - 響應式介面，手機也能操作
 
@@ -181,7 +182,7 @@ docker compose up -d --build
 ├── database/
 │   ├── schema.sql         資料表結構
 │   └── seed.sql           測試資料
-├── docs/                  GitHub Pages 線上展示版（HTML + JavaScript）與畫面截圖
+├── docs/                  GitHub Pages 網站（HTML + JavaScript，資料存在瀏覽器）與畫面截圖
 ├── tests/smoke_test.sh    權限與狀態轉換自動測試
 ├── Dockerfile
 └── docker-compose.yml
