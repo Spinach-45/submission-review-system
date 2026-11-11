@@ -3,6 +3,8 @@
 以 **PHP + MySQL** 實作的投稿審查系統，提供「作者」與「編輯」兩種角色，完整處理稿件從撰寫、送審、退回修改到審查通過的流程。
 
 > 期中個人專題作品
+>
+> 🔗 **線上展示：<https://spinach-45.github.io/submission-review-system/>**（不用安裝，直接用下方測試帳號登入。展示版為純前端，資料存在瀏覽器；正式版為 PHP + MySQL）
 
 ![我的投稿清單](docs/screenshots/02-author-list.png)
 
@@ -179,6 +181,7 @@ docker compose up -d --build
 ├── database/
 │   ├── schema.sql         資料表結構
 │   └── seed.sql           測試資料
+├── docs/                  GitHub Pages 線上展示版（HTML + JavaScript）與畫面截圖
 ├── tests/smoke_test.sh    權限與狀態轉換自動測試
 ├── Dockerfile
 └── docker-compose.yml
